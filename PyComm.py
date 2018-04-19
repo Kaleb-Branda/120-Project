@@ -57,7 +57,7 @@ class serialPlot:
         timeText.set_text('Plot Interval = ' + str(self.plotTimer) + 'ms')
         data = self.privateData[(pltNumber*self.dataNumBytes):(self.dataNumBytes + pltNumber*self.dataNumBytes)]
         value,  = struct.unpack(self.dataType, data)
-        print(str(value))
+        print(str(pltNumber) + ': ' + str(value))
         self.data[pltNumber].append(value)    # we get the latest data point and append it to our array
         lines.set_data(range(self.plotMaxLength), self.data[pltNumber])
         lineValueText.set_text('[' + lineLabel + '] = ' + str(value))
@@ -83,7 +83,7 @@ def makeFigure(xLimit, yLimit, title):
     ax = plt.axes(xlim=(xmin, xmax), ylim=(int(ymin - (ymax - ymin) / 10), int(ymax + (ymax - ymin) / 10)))
     ax.set_title(title)
     ax.set_xlabel("Time")
-    ax.set_ylabel("Accelerometer Output")
+    ax.set_ylabel("EMG Output")
     return fig, ax
  
  
@@ -93,7 +93,7 @@ def main():
     baudRate = 9600
     maxPlotLength = 100     # number of points in x-axis of real time plot
     dataNumBytes = 2        # number of bytes of 1 data point
-    numPlots = 1           # number of plots in 1 graph
+    numPlots = 2           # number of plots in 1 graph
     s = serialPlot(portName, baudRate, maxPlotLength, dataNumBytes, numPlots)   # initializes all required variables
     s.readSerialStart()                                               # starts background thread
  

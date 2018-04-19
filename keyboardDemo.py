@@ -6,12 +6,15 @@ import time
 import collections
 import struct
 import pyautogui
+import matplotlib.pyplot as plt
+import matplotlib.animation as animation
 
 class serialPlot:
-    def __init__(self, serialPort='COM3', serialBaud=38400, dataNumBytes=2, windowLength=100, threshold=150):
+    def __init__(self, serialPort='COM3', serialBaud=38400, dataNumBytes=2, windowLength=100, threshold=150, numPlots=1):
         self.port = serialPort
         self.baud = serialBaud
         self.dataNumBytes = dataNumBytes
+        self.numPlots = numPlots
         self.rawData = bytearray(dataNumBytes)
         self.dataType = None
         self.threshold = threshold
@@ -26,6 +29,7 @@ class serialPlot:
         self.isReceiving = False
         self.thread = None
         self.thread1 = None
+        self.thread2 = None # plotting thread
         self.high = False
  
         print('Trying to connect to: ' + str(serialPort) + ' at ' + str(serialBaud) + ' BAUD.')
@@ -45,6 +49,9 @@ class serialPlot:
         if self.thread1 == None:
             self.thread1 = Thread(target=self.processSerialData)
             self.thread1.start()
+        if self.thread2 == None:
+            self.thread2 = Thread(target=self.plotThread)
+            self.thread2.start()
 
     def shouldClick(self):
         return self.high
@@ -53,19 +60,28 @@ class serialPlot:
         self.high = False
 
     def processSerialData(self):
+        time.sleep(1.0)
+        pltNumber = 0
         try:
             while self.isRun:
                 time.sleep(0.1)
                 while self.isReceiving and self.isRun:
-                    #data = self.rawData[0:self.dataNumBytes]
-                    value, = struct.unpack(self.dataType, self.rawData)
+                    data_point = self.rawData[(pltNumber*self.dataNumBytes):(self.dataNumBytes * (pltNumber + 1))]
+                    print(len(data_point))
+                    value, = struct.unpack(self.dataType, data_point)
+                    
+                    #allow for plotting
+                    self.data[pltNumber].append(value)
+                    pltNumber = pltNumber + 1 if pltNumber < 2 else 0
+
                     if value > self.threshold:
                         self.high = True
-                    positionStr = str(value)
-                    print(positionStr, end='')
-                    print('\b' * len(positionStr), end='', flush=True)
+
+                    #positionStr = str(value)
+                    #print(positionStr, end='')
+                    #print('\b' * len(positionStr), end='', flush=True)
         except KeyboardInterrupt:
-            s.close()
+            self.close()
             print('Done.\n')
             quit()
 
@@ -77,9 +93,52 @@ class serialPlot:
                 self.serialConnection.readinto(self.rawData)
                 self.isReceiving = True
         except KeyboardInterrupt:
-            s.close()
+            self.close()
             print('Done.\n')
             quit()
+
+    def makeFigure(self, xLimit, yLimit, title):
+        xmin, xmax = xLimit
+        ymin, ymax = yLimit
+        fig = plt.figure()
+        ax = plt.axes(xlim=(xmin, xmax), ylim=(int(ymin - (ymax - ymin) / 10), int(ymax + (ymax - ymin) / 10)))
+        ax.set_title(title)
+        ax.set_xlabel("Time")
+        ax.set_ylabel("EMG Output")
+        return fig, ax
+
+    def plotThread(self):
+        try:
+            maxPlotLength = 100
+            pltInterval = 50    # Period at which the plot animation updates [ms]
+            lineLabelText = ['Signal 1', 'Signal 2']
+            title = ['Right Hand Signal', 'Left Hand Signal']
+            xLimit = [(0, maxPlotLength), (0, maxPlotLength)]
+            yLimit = [(0, 500), (0, 500)]
+            style = ['r-', 'b-']    # linestyles for the different plots
+            anim = []
+            
+            for i in range(self.numPlots):
+                fig, ax = self.makeFigure(xLimit[i], yLimit[i], title[i])
+                #lines = ax.plot([], [], style[i], label=lineLabelText[i])[0]
+                #timeText = ax.text(0.50, 0.95, '', transform=ax.transAxes)
+                #lineValueText = ax.text(0.50, 0.90, '', transform=ax.transAxes)
+                anim.append(animation.FuncAnimation(fig, self.doNothing, frames=self.data[i], interval=pltInterval))
+                #plt.legend(loc="upper left")
+            plt.show()
+
+
+        except KeyboardInterrupt:
+            self.close()
+            print('Done.\n')
+            quit()
+
+        self.close()
+        print('Done.\n')
+        quit()
+
+    def doNothing(self):
+        return
 
     def close(self):
         self.isRun = False
@@ -119,7 +178,7 @@ def main(threshold = -215):
     baudRate = 9600
     windowLength = 20
     dataNumBytes = 2        # number of bytes of 1 data point
-    s = serialPlot(portName, baudRate, dataNumBytes, windowLength, threshold)   # initializes all required variables
+    s = serialPlot(portName, baudRate, dataNumBytes, windowLength, threshold, numPlots=2)   # initializes all required variables
     s.readSerialStart()     # starts background thread
 
     x_increment = 105

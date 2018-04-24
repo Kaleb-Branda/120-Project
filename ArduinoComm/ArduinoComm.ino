@@ -9,7 +9,7 @@ void loop() {
   int left = analogRead(A1);
   // Convert to sendable packets
   sendToPC(&right);
-  sendToPc(&left);
+  sendToPC(&left);
 
 }
  

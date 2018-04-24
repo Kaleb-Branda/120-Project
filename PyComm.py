@@ -57,7 +57,6 @@ class serialPlot:
         timeText.set_text('Plot Interval = ' + str(self.plotTimer) + 'ms')
         data = self.privateData[(pltNumber*self.dataNumBytes):(self.dataNumBytes + pltNumber*self.dataNumBytes)]
         value,  = struct.unpack(self.dataType, data)
-        print(str(pltNumber) + ': ' + str(value))
         self.data[pltNumber].append(value)    # we get the latest data point and append it to our array
         lines.set_data(range(self.plotMaxLength), self.data[pltNumber])
         lineValueText.set_text('[' + lineLabel + '] = ' + str(value))

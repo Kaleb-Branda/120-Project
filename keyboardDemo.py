@@ -36,6 +36,11 @@ class serialPlot:
         self.plotTimer = 0
         self.previousTimer = 0
         self.threshold = threshold
+
+
+        # Filter variables
+        self.EMA_S = [0,0]
+        self.EMA_a = 0.3
  
         print('Trying to connect to: ' + str(serialPort) + ' at ' + str(serialBaud) + ' BAUD.')
         try:
@@ -64,11 +69,18 @@ class serialPlot:
         timeText.set_text('Plot Interval = ' + str(self.plotTimer) + 'ms')
         data = self.privateData[(pltNumber*self.dataNumBytes):(self.dataNumBytes + pltNumber*self.dataNumBytes)]
         value,  = struct.unpack(self.dataType, data)
-        if value > self.threshold:
+
+        ### Filters go here
+        self.EMA_S[pltNumber] = (self.EMA_a * value) + ((1-self.EMA_a) * self.EMA_S[pltNumber])
+        value_filtered = value - self.EMA_S[pltNumber]
+
+        #value_filtered = value
+
+        if value_filtered > self.threshold:
             self.high[pltNumber] = True
-        self.data[pltNumber].append(value)    # we get the latest data point and append it to our array
+        self.data[pltNumber].append(value_filtered)    # we get the latest data point and append it to our array
         lines.set_data(range(self.plotMaxLength), self.data[pltNumber])
-        lineValueText.set_text('[' + lineLabel + '] = ' + str(value))
+        lineValueText.set_text('[' + lineLabel + '] = ' + str(value_filtered))
  
     def shouldClick(self):
         for i in range(self.numPlots):
@@ -192,7 +204,7 @@ def main():
     maxPlotLength = 100     # number of points in x-axis of real time plot
     dataNumBytes = 2        # number of bytes of 1 data point
     numPlots = 2           # number of plots in 1 graph
-    s = serialPlot(portName, baudRate, maxPlotLength, dataNumBytes, numPlots, threshold=600)   # initializes all required variables
+    s = serialPlot(portName, baudRate, maxPlotLength, dataNumBytes, numPlots, threshold=200)   # initializes all required variables
     s.readSerialStart()                                               # starts background thread
  
     # plotting starts below
